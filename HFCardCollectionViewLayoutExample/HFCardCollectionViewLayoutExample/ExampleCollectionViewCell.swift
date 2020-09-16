@@ -17,7 +17,6 @@ class ExampleCollectionViewCell: HFCardCollectionViewCell {
     @IBOutlet var buttonFlip: UIButton?
     @IBOutlet var tableView: UITableView?
     @IBOutlet var labelText: UILabel?
-    @IBOutlet var imageIcon: UIImageView?
     
     @IBOutlet var backView: UIView?
     @IBOutlet var buttonFlipBack: UIButton?

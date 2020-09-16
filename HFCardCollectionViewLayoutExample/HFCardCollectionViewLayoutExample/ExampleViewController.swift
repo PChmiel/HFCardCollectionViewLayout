@@ -9,11 +9,6 @@
 import UIKit
 import HFCardCollectionViewLayout
 
-struct CardInfo {
-    var color: UIColor
-    var icon: UIImage
-}
-
 class ExampleViewController : UICollectionViewController, HFCardCollectionViewLayoutDelegate {
     
     var cardCollectionViewLayout: HFCardCollectionViewLayout?
@@ -24,14 +19,21 @@ class ExampleViewController : UICollectionViewController, HFCardCollectionViewLa
     var cardLayoutOptions: CardLayoutSetupOptions?
     var shouldSetupBackgroundView = false
     
-    var cardArray: [CardInfo] = []
+    var colorArray: [UIColor] = []
     
     override func viewDidLoad() {
-        self.setupExample()
         super.viewDidLoad()
+        self.setupExample()
     }
     
     // MARK: CollectionView
+    
+    func cardCollectionViewLayout(_ collectionViewLayout: HFCardCollectionViewLayout, canUnrevealCardAtIndex index: Int) -> Bool {
+        if(self.colorArray.count == 1) {
+            return false
+        }
+        return true
+    }
     
     func cardCollectionViewLayout(_ collectionViewLayout: HFCardCollectionViewLayout, willRevealCardAtIndex index: Int) {
         if let cell = self.collectionView?.cellForItem(at: IndexPath(item: index, section: 0)) as? ExampleCollectionViewCell {
@@ -47,14 +49,15 @@ class ExampleViewController : UICollectionViewController, HFCardCollectionViewLa
         }
     }
     
+    
+    
     override func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return self.cardArray.count
+        return self.colorArray.count
     }
     
     override func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "CardCell", for: indexPath) as! ExampleCollectionViewCell
-        cell.backgroundColor = self.cardArray[indexPath.item].color
-        cell.imageIcon?.image = self.cardArray[indexPath.item].icon
+        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "CardCell", for: indexPath)
+        cell.backgroundColor = self.colorArray[indexPath.item]
         return cell
     }
     
@@ -63,9 +66,9 @@ class ExampleViewController : UICollectionViewController, HFCardCollectionViewLa
     }
     
     override func collectionView(_ collectionView: UICollectionView, moveItemAt sourceIndexPath: IndexPath, to destinationIndexPath: IndexPath) {
-        let tempItem = self.cardArray[sourceIndexPath.item]
-        self.cardArray.remove(at: sourceIndexPath.item)
-        self.cardArray.insert(tempItem, at: destinationIndexPath.item)
+        let tempColor = self.colorArray[sourceIndexPath.item]
+        self.colorArray.remove(at: sourceIndexPath.item)
+        self.colorArray.insert(tempColor, at: destinationIndexPath.item)
     }
  
     // MARK: Actions
@@ -76,12 +79,18 @@ class ExampleViewController : UICollectionViewController, HFCardCollectionViewLa
     
     @IBAction func addCardAction() {
         let index = 0
-        let newItem = createCardInfo()
-        self.cardArray.insert(newItem, at: index)
-        self.collectionView?.insertItems(at: [IndexPath(item: index, section: 0)])
+        if(self.colorArray.count == 1 || self.cardCollectionViewLayout!.revealedIndex >= 0) {
+            self.cardCollectionViewLayout?.unrevealCard(completion: {
+                self.colorArray.insert(self.getRandomColor(), at: index)
+                self.collectionView?.insertItems(at: [IndexPath(item: index, section: 0)])
+            })
+        } else {
+            self.colorArray.insert(self.getRandomColor(), at: index)
+            self.collectionView?.insertItems(at: [IndexPath(item: index, section: 0)])
+        }
         
-        if(self.cardArray.count == 1) {
-            self.cardCollectionViewLayout?.revealCardAt(index: index)
+        if(self.colorArray.count == 1) {
+            self.cardCollectionViewLayout?.revealCardAt(index: 0)
         }
     }
     
@@ -91,8 +100,13 @@ class ExampleViewController : UICollectionViewController, HFCardCollectionViewLa
             index = self.cardCollectionViewLayout!.revealedIndex
         }
         self.cardCollectionViewLayout?.flipRevealedCardBack(completion: {
-            self.cardArray.remove(at: index)
+            self.colorArray.remove(at: index)
             self.collectionView?.deleteItems(at: [IndexPath(item: index, section: 0)])
+            self.cardCollectionViewLayout?.unrevealCard(completion: {
+                if(self.colorArray.count == 1) {
+                    self.cardCollectionViewLayout?.revealCardAt(index: 0)
+                }
+            })
         })
     }
     
@@ -101,6 +115,14 @@ class ExampleViewController : UICollectionViewController, HFCardCollectionViewLa
     private func setupExample() {
         if let cardCollectionViewLayout = self.collectionView?.collectionViewLayout as? HFCardCollectionViewLayout {
             self.cardCollectionViewLayout = cardCollectionViewLayout
+        }
+        
+        if(self.traitCollection.horizontalSizeClass == .regular) {
+            self.collectionView?.contentInset.left = 100
+            self.collectionView?.contentInset.right = 100
+        } else {
+            self.collectionView?.contentInset.left = 0
+            self.collectionView?.contentInset.right = 0
         }
         if(self.shouldSetupBackgroundView == true) {
             self.setupBackgroundView()
@@ -125,30 +147,20 @@ class ExampleViewController : UICollectionViewController, HFCardCollectionViewLa
             self.cardCollectionViewLayout?.bottomStackedCardsMaximumScale = cardLayoutOptions.bottomStackedCardsMaximumScale
             
             let count = cardLayoutOptions.numberOfCards
-            
-            for index in 0..<count {
-                self.cardArray.insert(createCardInfo(), at: index)
+            for _ in 0..<count {
+                self.colorArray.append(self.getRandomColor())
             }
         }
         self.collectionView?.reloadData()
-    }
-    
-    private func createCardInfo() -> CardInfo {
-        let icons: [UIImage] = [#imageLiteral(resourceName: "Icon1.pdf"), #imageLiteral(resourceName: "Icon2.pdf"), #imageLiteral(resourceName: "Icon3.pdf"), #imageLiteral(resourceName: "Icon4.pdf"), #imageLiteral(resourceName: "Icon5.pdf"), #imageLiteral(resourceName: "Icon6.pdf")]
-        let icon = icons[Int(arc4random_uniform(6))]
-        let newItem = CardInfo(color: self.getRandomColor(), icon: icon)
-        return newItem
     }
     
     private func setupBackgroundView() {
         if(self.cardLayoutOptions?.spaceAtTopForBackgroundView == 0) {
             self.cardLayoutOptions?.spaceAtTopForBackgroundView = 44 // Height of the NavigationBar in the BackgroundView
         }
-        if let collectionView = self.collectionView {
-            collectionView.backgroundView = self.backgroundView
-            self.backgroundNavigationBar?.shadowImage = UIImage()
-            self.backgroundNavigationBar?.setBackgroundImage(UIImage(), for: .default)
-        }
+        self.collectionView?.backgroundView = self.backgroundView
+        self.backgroundNavigationBar?.shadowImage = UIImage()
+        self.backgroundNavigationBar?.setBackgroundImage(UIImage(), for: .default)
     }
     
     private func getRandomColor() -> UIColor{
